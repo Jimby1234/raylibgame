@@ -33,6 +33,7 @@ struct Player {
     Vector2 size;
     float maxReloadTime;
     float reloadTime;
+    float dmg;
 };
 
 //bullet setup
@@ -56,7 +57,7 @@ void shoot(Vector2 playerPosition, Vector2 size, Vector2 mousePos)
     }
 }
 
-float updateEnemies(Player &player, float dt, float &playerHealth)
+float updateEnemies(Player &player, float dt)
 {
     float xp = 0.0f;
     Rectangle playerRect = { player.position.x, player.position.y, player.size.x, player.size.y };
@@ -72,11 +73,18 @@ float updateEnemies(Player &player, float dt, float &playerHealth)
         enemies[i].pos.x += enemies[i].vel.x * dt;
         enemies[i].pos.y += enemies[i].vel.y * dt;
 
+        if (CheckCollisionCircleRec(enemies[i].pos, 10, playerRect))
+        {
+            enemies[i].alive = false;
+            enemies[i].health = 0.0f;
+            player.health -= enemies[i].dmg;
+        }
+
         for (int k = 0; k < MAX_BULLETS; k++)
         {
             if (bullets[k].alive and CheckCollisionCircles(enemies[i].pos, 30, bullets[k].pos, 10))
             {
-                enemies[i].health -= 1.0f;
+                enemies[i].health -= player.dmg;
                 bullets[k].alive = false;
 
                 if (enemies[i].health <= 0.0f)
@@ -123,6 +131,7 @@ void spawnEnemy()
             enemies[i].health = 3.0f;
             enemies[i].alive = true;
             enemies[i].experience = 5.0f;
+            enemies[i].dmg = 10.0f;
 
             break;
         }
@@ -192,6 +201,8 @@ int main(void)
     player.lvlExperience = 0.0f;
     player.maxReloadTime = 0.3f;
     player.reloadTime = 0.0f;
+    player.health = 100.0f;
+    player.dmg = 1.0f;
 
     float totalTime = 0.0f;
     // Main game loop
@@ -215,7 +226,7 @@ int main(void)
             }
 
             updateBullets(dt);
-            player.lvlExperience += updateEnemies(player, dt, player.health);
+            player.lvlExperience += updateEnemies(player, dt);
 
             if (totalTime >= 0.5f)
             {
@@ -227,6 +238,11 @@ int main(void)
             {
                 state = "lvlup";
             }
+
+            else if (player.health <= 0.0f)
+            {
+                state = "dead";
+            }
         }
         else if(state == "lvlup")
         {
@@ -237,6 +253,39 @@ int main(void)
                 state = "play";
 
             }
+            else if(CheckCollisionPointRec(mousePos, btn2) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+            {
+                player.dmg += 0.5;
+                player.lvlExperience = 0.0f;
+                state = "play";
+            }
+        }
+
+        else if (state == "dead")
+        {
+            player.speed = 150.0f;
+            player.size = { 30,30 };
+            player.position = { GetScreenWidth() / 2 - player.size.x / 2, GetScreenHeight() / 2 - player.size.y / 2 };
+            player.lvlExperience = 0.0f;
+            player.totalExperience = 0.0f;
+            player.maxReloadTime = 0.3f;
+            player.reloadTime = 0.0f;
+            player.health = 100.0f;
+
+            // clear bullets
+            for (int i = 0; i < MAX_BULLETS; i++)
+            {
+                bullets[i].alive = false;
+            }
+
+            // clear enemies
+            for (int i = 0; i < MAX_ENEMIES; i++)
+            {
+                enemies[i].alive = false;
+            }
+
+            totalTime = 0.0f;
+            state = "play";
         }
         
 
