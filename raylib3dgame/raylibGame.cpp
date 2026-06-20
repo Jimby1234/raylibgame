@@ -5,6 +5,7 @@
 
 #define MAX_BULLETS 1000
 #define MAX_ENEMIES 1000
+#define MAX_POWERS 20
 
 struct Bullet
 {
@@ -34,6 +35,7 @@ struct Player {
     float maxReloadTime;
     float reloadTime;
     float dmg;
+    int powers[MAX_POWERS];
 };
 
 //bullet setup
@@ -42,7 +44,7 @@ Enemy enemies[MAX_ENEMIES];
 
 void shoot(Vector2 playerPosition, Vector2 size, Vector2 mousePos)
 {
-    float angle = atan2f(mousePos.y - playerPosition.y, mousePos.x - playerPosition.x);
+    float angle = atan2f(mousePos.y - playerPosition.y, mousePos.x - playerPosition.x); 
 
     for (int i = 0; i < MAX_BULLETS; i++)
     {
@@ -82,7 +84,7 @@ float updateEnemies(Player &player, float dt)
 
         for (int k = 0; k < MAX_BULLETS; k++)
         {
-            if (bullets[k].alive and CheckCollisionCircles(enemies[i].pos, 30, bullets[k].pos, 10))
+            if (bullets[k].alive and CheckCollisionCircles(enemies[i].pos, 10, bullets[k].pos, 10))
             {
                 enemies[i].health -= player.dmg;
                 bullets[k].alive = false;
@@ -98,7 +100,7 @@ float updateEnemies(Player &player, float dt)
     return xp;
 }
 
-void spawnEnemy()
+void spawnEnemy(float difficulty)
 {
     for (int i = 0; i < MAX_ENEMIES; i++)
     {
@@ -127,12 +129,11 @@ void spawnEnemy()
                 enemies[i].pos.y = GetRandomValue(0, GetScreenHeight());
             }
 
-            enemies[i].speed = 30;
-            enemies[i].health = 3.0f;
+            enemies[i].speed = 30.0f + difficulty * 5.0f;
+            enemies[i].health = 3.0f + difficulty * 1.0f;
+            enemies[i].dmg = 10.0f + difficulty * 2.0f;
             enemies[i].alive = true;
             enemies[i].experience = 5.0f;
-            enemies[i].dmg = 10.0f;
-
             break;
         }
     }
@@ -199,17 +200,22 @@ int main(void)
     player.size = { 30,30 };
     player.position = { (float)screenWidth / 2 - player.size.x / 2, (float)screenHeight / 2 - player.size.y / 2 };
     player.lvlExperience = 0.0f;
+    player.totalExperience = 0.0f;
     player.maxReloadTime = 0.3f;
     player.reloadTime = 0.0f;
     player.health = 100.0f;
     player.dmg = 1.0f;
 
+    float spawnInterval = 2.0f;
     float totalTime = 0.0f;
+    int spawnAmount = 1;
     // Main game loop
     while (!WindowShouldClose())
     {
         float dt = GetFrameTime();
-        totalTime += dt;
+        
+        
+
         Vector2 mousePos = GetMousePosition();
 
         //LOGIC
@@ -226,15 +232,24 @@ int main(void)
             }
 
             updateBullets(dt);
-            player.lvlExperience += updateEnemies(player, dt);
+            float xp = updateEnemies(player, dt);
+            player.lvlExperience += xp;
+            player.totalExperience += xp;
 
-            if (totalTime >= 0.5f)
+            totalTime += dt;
+
+            if (totalTime >= spawnInterval)
             {
-                spawnEnemy();
+                for (int i = 0; i < spawnAmount; i++)
+                {
+                    spawnEnemy(player.totalExperience / 200.0f);
+                }
                 totalTime = 0;
+                spawnInterval = fmaxf(0.3f, 2.0f - player.totalExperience / 500.0f);
+                spawnAmount = 1 + (int)(player.totalExperience / 200.0f);
             }
 
-            if (player.lvlExperience >= 100.0f)
+            if (player.lvlExperience >= 50.0f)
             {
                 state = "lvlup";
             }
@@ -292,22 +307,27 @@ int main(void)
         //DRAWING
         BeginDrawing();
         ClearBackground(DARKGRAY);
-        DrawFPS(20, 20);
-        DrawText((std::to_string(player.lvlExperience)).c_str(), screenWidth / 2 - 20, 20, 20, BLACK);
 
         drawBullets();
         drawEnemies();
 
         DrawRectangleV(player.position, player.size, GREEN);
 
+        DrawFPS(20, 20);
+        std::string xpText = "xp: " + std::to_string(player.lvlExperience);
+        DrawText(xpText.c_str(), screenWidth - 200, screenHeight-40, 20, BLACK);
+        std::string hpText = "hp: " + std::to_string(player.health);
+        DrawText(hpText.c_str(), 40, screenHeight - 40, 20, BLACK);
+
         if (state == "lvlup")
         {
 
             DrawRectangleRec(btn1, { 244, 0, 167, 255 });
             DrawRectangleRec(btn2, { 244, 0, 167, 255 });
-            DrawText("less reload", screenWidth / 3 - 50, screenHeight / 2 - 10, 20, BLACK);
-            DrawText("more damage", screenWidth / 3 * 2 - 50, screenHeight / 2 - 10, 20, BLACK);
+            DrawText("less reload", screenWidth / 3 - 40, screenHeight / 2 - 10, 20, BLACK);
+            DrawText("more damage", screenWidth / 3 * 2 - 40, screenHeight / 2 - 10, 20, BLACK);
         }
+
 
         EndDrawing();
     }
